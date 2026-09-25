@@ -1,7 +1,7 @@
 # emailler
 
-[![Crates.io](https://img.shields.io/badge/crates.io-v0.1.0-orange&logo=rust)](https://crates.io/crates/emailler)
-[![Downloads](https://img.shields.io/crates/d/emailler)](https://crates.io/crates/emailler)
+[![Crates.io](https://img.shields.io/crates/v/emailler.svg)](https://crates.io/crates/emailler)
+[![Downloads](https://img.shields.io/crates/d/emailler.svg)](https://crates.io/crates/emailler)
 [![Docs.rs](https://img.shields.io/badge/docs.rs-emailler-blue&logo=rust)](https://docs.rs/emailler)
 [![Stars](https://img.shields.io/github/stars/FishgameStudio/emailler)](https://github.com/FishgameStudio/emailler/stargazers)
 [![Open Issues](https://img.shields.io/github/issues/FishgameStudio/emailler)](https://github.com/FishgameStudio/emailler/issues)
