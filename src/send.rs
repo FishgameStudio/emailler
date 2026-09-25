@@ -20,17 +20,35 @@ where
 
 /// Structure to store email informations.
 /// # Attributes
-/// **from**: The address of the sender.<br>
-/// **to**: The address of the receiver.<br>
-/// **subject**: The subject of the email.<br>
-/// **body**: The body of the email.<br>
-/// **smtp_server**: The domain of the email, e.g. `smtp.gmail.com`.
+/// - **from**: The address of the sender.
+/// - **to**: The address of the receiver.
+/// - **subject**: The subject of the email.
+/// - **body**: The body of the email.
+/// - **smtp_server**: The domain of the email, e.g. `smtp.gmail.com`.
+/// To change / set up these fields, you need to set it as mutable.
 #[derive(Debug)]
 pub struct Email {
+    /// The sender.
+    /// For examples:
+    /// ```text
+    /// a@example.com
+    /// Alice b@example.com
+    /// ```
     pub from: String,
+    /// The receiver.
+    /// For examples:
+    /// ```text
+    /// a@example.com
+    /// Bob b@example.com
+    /// ```
     pub to: String,
+    /// The subject of the email.
     pub subject: String,
+    /// The body of the email.
     pub body: String,
+    /// The SMTP server domain.
+    /// For example, `smtp.gmail.com` (Gmail),
+    /// `smtp.office365.com` (Outlook).
     pub smtp_server: String,
 }
 impl Email {
@@ -54,6 +72,19 @@ impl Email {
     }
     /// Send this email to the specified receiver.
     /// The `auth_code` will be zeroized after usage.
+    /// # Examples
+    /// ```no_run
+    /// fn main() -> Result<()> {
+    ///     let mut email = Email::new();
+    ///     email.from = "a@example.com";
+    ///     email.to = "b@example.com";
+    ///     email.smtp_server = "smtp.example.com";
+    ///     email.subject = "Email Subject";
+    ///     email.body = "Hello, world!";
+    ///     let resp = email.send()?;
+    ///     println!("Response: {resp:?}");
+    /// }
+    /// ```
     pub fn send<S>(&self, auth_code: S) -> Result<Response>
     where
         S: Into<String>,

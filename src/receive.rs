@@ -62,9 +62,17 @@ fn parse_emails(addr_obj: Option<&Address>) -> String {
     }
 }
 
-/// Receive all unread emails, and mark them as read.
+/// Receive all unread emails, and mark them as read if need.
 /// # Examples
 /// ```no_run
+/// use emailler::{receive_emails, Result};
+/// fn main() -> Result<()> {
+///     let emails = receive_emails(
+///         "a@example.com", "sample-auth-code",
+///         "smtp.example.com", true // Mark as read
+///     )?;
+///     println!("Unread emails: {emails:#?}");
+/// }
 /// ```
 pub fn receive_emails(
     addr: &str,
