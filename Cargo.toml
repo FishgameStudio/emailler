@@ -2,5 +2,11 @@
 name = "emailler"
 version = "0.1.0"
 edition = "2024"
+description = "Get started to use send emails with emailler."
+license = "MIT"
+repo = "https://github.com/FishgameStudio/emailler"
+
+[lib]
+name = "emailler"
 
 [dependencies]
