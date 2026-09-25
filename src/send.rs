@@ -25,6 +25,7 @@ where
 /// - **subject**: The subject of the email.
 /// - **body**: The body of the email.
 /// - **smtp_server**: The domain of the email, e.g. `smtp.gmail.com`.
+///
 /// To change / set up these fields, you need to set it as mutable.
 #[derive(Debug)]
 pub struct Email {
@@ -114,5 +115,11 @@ impl Email {
         auth_code.zeroize();
         drop(auth_code);
         Ok(resp)
+    }
+}
+
+impl Default for Email {
+    fn default() -> Self {
+        Self::new()
     }
 }
