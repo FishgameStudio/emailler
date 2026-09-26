@@ -56,7 +56,7 @@ This example creates a new email, fills in the required fields, and sends it thr
 
 ## Notes
 
-Before sending mail through services such as Gmail, Outlook, or other providers, make sure you are using the correct SMTP settings and credentials for that provider. Many email services require an application-specific password or special configuration for SMTP access.
+Before sending or receiving mail via services such as Gmail, Outlook, or other providers, make sure you are using the correct SMTP / IMAP settings and credentials for that provider. Many email services require an application‑specific password or special configuration for SMTP and IMAP access.
 
 ## License
 
