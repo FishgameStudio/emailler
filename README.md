@@ -44,6 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     email.smtp_server = "smtp.gmail.com".to_string();
     email.subject = "Hello from Rust".to_string();
     email.body = "This email was sent with emailler.".to_string();
+    email.html_body = "This email was sent <strong>with emailler</strong>.".to_string();
 
     let response = email.send("your-app-password")?;
     println!("Mail sent successfully: {:?}", response);
