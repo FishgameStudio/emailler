@@ -1,7 +1,7 @@
 //! Module for email sending.
 
 use crate::errors::{EmailError, Result};
-use lettre::message::Message;
+use lettre::message::{Message, MultiPart};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::transport::smtp::response::Response;
 use lettre::{SmtpTransport, Transport};
@@ -19,14 +19,12 @@ where
 }
 
 /// Structure to store email informations.
-/// # Attributes
-/// - **from**: The address of the sender.
-/// - **to**: The address of the receiver.
-/// - **subject**: The subject of the email.
-/// - **body**: The body of the email.
-/// - **smtp_server**: The domain of the email, e.g. `smtp.gmail.com`.
 ///
 /// To change / set up these fields, you need to set it as mutable.
+/// ```
+/// let mut email = Email::new();
+/// // Some modifications...
+/// ```
 #[derive(Debug)]
 pub struct Email {
     /// The sender.
@@ -47,6 +45,8 @@ pub struct Email {
     pub subject: String,
     /// The body of the email.
     pub body: String,
+    /// The HTML body of the email.
+    pub html_body: String,
     /// The SMTP server domain.
     /// For example, `smtp.gmail.com` (Gmail),
     /// `smtp.office365.com` (Outlook).
@@ -68,6 +68,7 @@ impl Email {
             to: String::new(),
             subject: String::new(),
             body: String::new(),
+            html_body: String::new(),
             smtp_server: String::new(),
         }
     }
@@ -100,7 +101,10 @@ impl Email {
             .from(self.from.parse()?)
             .to(self.to.parse()?)
             .subject(&self.subject)
-            .body(self.body.to_owned())?;
+            .multipart(MultiPart::alternative_plain_html(
+                self.body.to_owned(),
+                self.html_body.to_owned(),
+            ))?;
         let resp = mailer.send(&message)?;
 
         auth_code.zeroize();

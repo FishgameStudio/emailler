@@ -12,6 +12,7 @@ use thiserror::Error;
 /// - [`Client`](EmailError::Client): Errors during the client or the session.
 /// - [`EmailParse`](EmailError::EmailParse): Errors during parsing email contents.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum EmailError {
     /// Errors during parsing email address.
     #[error("Failed to parse email address: {0}")]
