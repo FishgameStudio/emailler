@@ -1,5 +1,6 @@
 //! Module for email receiving.
 
+use crate::config::ImapConfig;
 use crate::errors::{EmailError, Result};
 use mail_parser::{
     Address::{self, *},
@@ -20,8 +21,10 @@ pub struct EmailReceipt {
     pub receivers: Vec<String>,
     /// The subject of the email.
     pub subject: String,
-    /// The body, maybe text, maybe html.
+    /// The text body.
     pub body: String,
+    /// The HTML body.
+    pub html_body: String,
 }
 impl EmailReceipt {
     /// Create a new [`EmailReceipt`] object.
@@ -31,6 +34,7 @@ impl EmailReceipt {
             receivers: vec![],
             subject: String::new(),
             body: String::new(),
+            html_body: String::new(),
         }
     }
 }
@@ -100,18 +104,32 @@ fn parse_emails(addr_obj: Option<&Address>) -> Vec<String> {
 pub fn receive_emails(
     addr: &str,
     auth_code: &str,
-    smtp_server: &str,
+    cfg: &ImapConfig,
     mark_as_read: bool,
+    skip_errors: bool,
 ) -> Result<Vec<EmailReceipt>> {
     // Simple validation
-    if addr.is_empty() {
-        Err(EmailError::InvalidField(String::from(
-            "Address cannot be empty",
-        )))?;
+    use crate::utils::check_email;
+    if check_email(addr) {
+        Err(EmailError::InvalidField(String::from("Address invalid")))?;
+    }
+    if cfg.use_starttls && cfg.port == 993 {
+        return Err(EmailError::ImapConfig(
+            "Port 993 uses Implicit TLS, set use_starttls=false".into(),
+        ));
+    }
+    if !cfg.use_starttls && cfg.port == 143 {
+        return Err(EmailError::ImapConfig(
+            "Port 143 uses STARTTLS, set use_starttls=true".into(),
+        ));
     }
 
     let tls_conn = TlsConnector::new()?;
-    let client = imap::connect((smtp_server, 993), smtp_server, &tls_conn)?;
+    let client = if cfg.use_starttls {
+        imap::connect_starttls((cfg.host.as_str(), cfg.port), &cfg.host, &tls_conn)?
+    } else {
+        imap::connect((cfg.host.as_str(), cfg.port), &cfg.host, &tls_conn)?
+    };
     let mut session = client.login(addr, auth_code).map_err(|e| e.0)?;
 
     session.select("INBOX")?;
@@ -136,15 +154,24 @@ pub fn receive_emails(
             continue;
         };
         let Some(msg) = MessageParser::default().parse(raw) else {
-            return Err(EmailError::EmailParse(String::from(
-                "Email message parsing failed",
-            )));
+            if skip_errors {
+                continue;
+            } else {
+                return Err(EmailError::EmailParse(String::from(
+                    "Email message parsing failed",
+                )));
+            }
         };
         let mut email = EmailReceipt::new();
 
         email.subject = msg.subject().unwrap_or("(No subjects)").to_string();
         email.body = msg
             .text_body
+            .iter()
+            .filter_map(|c| char::from_u32(*c))
+            .collect();
+        email.html_body = msg
+            .html_body
             .iter()
             .filter_map(|c| char::from_u32(*c))
             .collect();

@@ -29,24 +29,31 @@ Add this to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-emailler = "0.1.0"
+emailler = "0.1.1"
+```
+
+Or use cargo to add it:
+
+```sh
+cargo add emailler
 ```
 
 ## 🚀 Quick start
 
 ```rust
-use emailler::Email;
+use emailler::{Email, SmtpConfig};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut email = Email::new();
-    email.from = "you@gmail.com".to_string();
-    email.to = "friend@example.com".to_string();
-    email.smtp_server = "smtp.gmail.com".to_string();
-    email.subject = "Hello from Rust".to_string();
-    email.body = "This email was sent with emailler.".to_string();
-    email.html_body = "This email was sent <strong>with emailler</strong>.".to_string();
+    email.from = "you@gmail.com".into();
+    email.to = "friend@example.com".into();
+    email.subject = "Hello from Rust".into();
+    email.body = "This email was sent with emailler.".into();
+    email.html_body = "This email was sent <strong>with emailler</strong>.".into();
 
-    let response = email.send("your-app-password")?;
+    let smtp_config = SmtpConfig::new("smtp.example.com");
+
+    let response = email.send("your-authentication-code", &smtp_config)?;
     println!("Mail sent successfully: {:?}", response);
     Ok(())
 }

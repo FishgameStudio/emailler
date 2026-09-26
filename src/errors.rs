@@ -41,6 +41,14 @@ pub enum EmailError {
     /// Errors during parsing email contents.
     #[error("Failed to parse email content: {0}")]
     EmailParse(String),
+
+    /// Errors during processing SMTP configurations.
+    #[error("SMTP config error: {0}")]
+    SmtpConfig(String),
+
+    /// Errors during processing IMAP configurations.
+    #[error("IMAP config error: {0}")]
+    ImapConfig(String),
 }
 
 /// Generic [`Result`](crate::errors::Result) for this crate.

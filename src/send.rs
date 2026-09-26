@@ -1,5 +1,6 @@
 //! Module for email sending.
 
+use crate::config::SmtpConfig;
 use crate::errors::{EmailError, Result};
 use lettre::message::{Message, MultiPart};
 use lettre::transport::smtp::authentication::Credentials;
@@ -7,21 +8,45 @@ use lettre::transport::smtp::response::Response;
 use lettre::{SmtpTransport, Transport};
 use zeroize::Zeroize;
 
-fn construct_mailer<S>(sender: S, authentication_code: S, smtp_server: S) -> Result<SmtpTransport>
+fn construct_mailer<S>(sender: S, authentication_code: S, cfg: &SmtpConfig) -> Result<SmtpTransport>
 where
     S: Into<String>,
 {
+    // Validate compatibility of port and encryption mode
+    if cfg.use_starttls && cfg.port == 465 {
+        return Err(EmailError::SmtpConfig(
+            "Port 465 uses Implicit TLS, set use_starttls=false".into(),
+        ));
+    }
+    if !cfg.use_starttls && cfg.port == 587 {
+        return Err(EmailError::SmtpConfig(
+            "Port 587 uses STARTTLS, set use_starttls=true".into(),
+        ));
+    }
+
     let creds = Credentials::new(sender.into(), authentication_code.into());
-    Ok(SmtpTransport::starttls_relay(&smtp_server.into())?
-        .port(587)
-        .credentials(creds)
-        .build())
+
+    // Use starttls_relay if specified to use STARTTLS.
+    let mut builder = if cfg.use_starttls {
+        SmtpTransport::starttls_relay(&cfg.host)?
+    } else {
+        SmtpTransport::relay(&cfg.host)?
+    };
+
+    builder = builder.port(cfg.port).credentials(creds);
+
+    if let Some(t) = cfg.timeout {
+        builder = builder.timeout(Some(t));
+    }
+
+    Ok(builder.build())
 }
 
 /// Structure to store email informations.
 ///
 /// To change / set up these fields, you need to set it as mutable.
 /// ```
+/// # use emailler::Email;
 /// let mut email = Email::new();
 /// // Some modifications...
 /// ```
@@ -47,10 +72,6 @@ pub struct Email {
     pub body: String,
     /// The HTML body of the email.
     pub html_body: String,
-    /// The SMTP server domain.
-    /// For example, `smtp.gmail.com` (Gmail),
-    /// `smtp.office365.com` (Outlook).
-    pub smtp_server: String,
 }
 impl Email {
     /// Create a new [`Email`] object.
@@ -69,7 +90,6 @@ impl Email {
             subject: String::new(),
             body: String::new(),
             html_body: String::new(),
-            smtp_server: String::new(),
         }
     }
     /// Send this email to the specified receiver.
@@ -78,7 +98,7 @@ impl Email {
     /// ```no_run
     #[doc = include_str!("../examples/send.rs")]
     /// ```
-    pub fn send<S>(&self, auth_code: S) -> Result<Response>
+    pub fn send<S>(&self, auth_code: S, cfg: &SmtpConfig) -> Result<Response>
     where
         S: Into<String>,
     {
@@ -86,17 +106,25 @@ impl Email {
 
         // Simple validation
         #[inline]
+        fn valid_addr(email: &str, msg: &str) -> Result<()> {
+            use crate::utils::check_email;
+            if check_email(email) {
+                Err(EmailError::InvalidField(String::from(msg)))?;
+            }
+            Ok(())
+        }
+        #[inline]
         fn non_empty(s: &str, msg: &str) -> Result<()> {
             if s.is_empty() {
                 Err(EmailError::InvalidField(String::from(msg)))?;
             }
             Ok(())
         }
-        non_empty(&self.from, "Address of sender cannot be empty")?;
-        non_empty(&self.to, "Address of receiver cannot be empty")?;
-        non_empty(&self.smtp_server, "SMTP server domain not specified")?;
+        valid_addr(&self.from, "Address of sender invalid")?;
+        valid_addr(&self.to, "Address of receiver invalid")?;
+        non_empty(&cfg.host, "SMTP server domain not specified")?;
 
-        let mailer = construct_mailer(&self.from, &auth_code, &self.smtp_server)?;
+        let mailer = construct_mailer(&self.from, &auth_code, &cfg)?;
         let message = Message::builder()
             .from(self.from.parse()?)
             .to(self.to.parse()?)
@@ -121,12 +149,16 @@ impl Default for Email {
 
 #[cfg(test)]
 mod tests {
-    use super::{Email, construct_mailer};
+    use super::{Email, SmtpConfig, construct_mailer};
 
     #[test]
     fn construct() {
-        let mailer =
-            construct_mailer("xxx@example.com", "xxx-auth-code", "smtp.example.com").unwrap();
+        let mailer = construct_mailer(
+            "xxx@example.com",
+            "xxx-auth-code",
+            &SmtpConfig::new("smtp.xxx.com"),
+        )
+        .unwrap();
         mailer
             .test_connection()
             .expect_err("Connection should fail"); // Should fail
@@ -137,11 +169,12 @@ mod tests {
         let email = Email::new();
         assert!(email.body.is_empty());
         assert!(email.subject.is_empty());
-        assert!(email.smtp_server.is_empty());
         assert!(email.from.is_empty());
         assert!(email.to.is_empty());
 
-        email.send("xxx-auth-code").expect_err("Should fail"); // Should fail
+        email
+            .send("xxx-auth-code", &SmtpConfig::new("smtp.xxx.example"))
+            .expect_err("Should fail"); // Should fail
     }
 
     #[test]
@@ -150,7 +183,6 @@ mod tests {
         let email = opt.unwrap_or_default();
         assert!(email.body.is_empty());
         assert!(email.subject.is_empty());
-        assert!(email.smtp_server.is_empty());
         assert!(email.from.is_empty());
         assert!(email.to.is_empty());
     }
