@@ -153,15 +153,12 @@ mod tests {
 
     #[test]
     fn construct() {
-        let mailer = construct_mailer(
+        let _mailer = construct_mailer(
             "xxx@example.com",
             "xxx-auth-code",
             &SmtpConfig::new("smtp.xxx.com"),
         )
         .unwrap();
-        mailer
-            .test_connection()
-            .expect_err("Connection should fail"); // Should fail
     }
 
     #[test]

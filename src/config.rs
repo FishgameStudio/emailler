@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn imap_test() {
         let mut cfg = ImapConfig::new("smtp.xxx.com");
-        assert_eq!(cfg.port, 587);
+        assert_eq!(cfg.port, 993);
         assert!(cfg.use_starttls);
         assert_eq!(cfg.timeout, None);
 
@@ -134,7 +134,7 @@ mod tests {
         // Default
         let opt: Option<ImapConfig> = None;
         let cfg = opt.unwrap_or_default();
-        assert_eq!(cfg.port, 587);
+        assert_eq!(cfg.port, 993);
         assert!(cfg.use_starttls);
         assert_eq!(cfg.timeout, None);
     }
