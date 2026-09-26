@@ -108,7 +108,7 @@ impl Email {
         #[inline]
         fn valid_addr(email: &str, msg: &str) -> Result<()> {
             use crate::utils::check_email;
-            if check_email(email) {
+            if !check_email(email) {
                 Err(EmailError::InvalidField(String::from(msg)))?;
             }
             Ok(())
