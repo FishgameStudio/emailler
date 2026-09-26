@@ -124,7 +124,7 @@ impl Email {
         valid_addr(&self.to, "Address of receiver invalid")?;
         non_empty(&cfg.host, "SMTP server domain not specified")?;
 
-        let mailer = construct_mailer(&self.from, &auth_code, &cfg)?;
+        let mailer = construct_mailer(&self.from, &auth_code, cfg)?;
         let message = Message::builder()
             .from(self.from.parse()?)
             .to(self.to.parse()?)
