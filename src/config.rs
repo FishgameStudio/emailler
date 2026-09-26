@@ -69,7 +69,7 @@ impl ImapConfig {
         Self {
             host: host.into(),
             port: 993,
-            use_starttls: true,
+            use_starttls: false,
             timeout: None,
         }
     }
