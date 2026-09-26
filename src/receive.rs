@@ -4,7 +4,7 @@ use crate::config::ImapConfig;
 use crate::errors::{EmailError, Result};
 use mail_parser::{
     Address::{self, *},
-    MessageParser,
+    MessageParser, PartType,
 };
 use native_tls::TlsConnector;
 
@@ -166,15 +166,21 @@ pub fn receive_emails(
 
         email.subject = msg.subject().unwrap_or("(No subjects)").to_string();
         email.body = msg
-            .text_body
-            .iter()
-            .filter_map(|c| char::from_u32(*c))
-            .collect();
+            .text_bodies()
+            .flat_map(|part| match &part.body {
+                PartType::Text(s) => Some(s.as_ref()),
+                _ => None,
+            })
+            .collect::<String>();
+
         email.html_body = msg
-            .html_body
-            .iter()
-            .filter_map(|c| char::from_u32(*c))
-            .collect();
+            .html_bodies()
+            .flat_map(|part| match &part.body {
+                PartType::Html(s) => Some(s.as_ref()),
+                _ => None,
+            })
+            .collect::<String>();
+
         email.senders = parse_emails(msg.from());
         email.receivers = parse_emails(msg.to());
 
