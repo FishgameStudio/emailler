@@ -110,7 +110,7 @@ pub fn receive_emails(
 ) -> Result<Vec<EmailReceipt>> {
     // Simple validation
     use crate::utils::check_email;
-    if check_email(addr) {
+    if !check_email(addr) {
         Err(EmailError::InvalidField(String::from("Address invalid")))?;
     }
     if cfg.use_starttls && cfg.port == 993 {
