@@ -114,3 +114,40 @@ impl Default for Email {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Email, construct_mailer};
+
+    #[test]
+    fn construct() {
+        let mailer =
+            construct_mailer("xxx@example.com", "xxx-auth-code", "smtp.example.com").unwrap();
+        mailer
+            .test_connection()
+            .expect_err("Connection should fail"); // Should fail
+    }
+
+    #[test]
+    fn email() {
+        let email = Email::new();
+        assert!(email.body.is_empty());
+        assert!(email.subject.is_empty());
+        assert!(email.smtp_server.is_empty());
+        assert!(email.from.is_empty());
+        assert!(email.to.is_empty());
+
+        email.send("xxx-auth-code").expect_err("Should fail"); // Should fail
+    }
+
+    #[test]
+    fn email_default() {
+        let opt: Option<Email> = None;
+        let email = opt.unwrap_or_default();
+        assert!(email.body.is_empty());
+        assert!(email.subject.is_empty());
+        assert!(email.smtp_server.is_empty());
+        assert!(email.from.is_empty());
+        assert!(email.to.is_empty());
+    }
+}

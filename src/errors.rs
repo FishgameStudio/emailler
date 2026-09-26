@@ -1,5 +1,5 @@
 //! # Error Types
-//! This modules included error types for email sending.
+//! This modules included error types for email sending & receiving.
 
 use thiserror::Error;
 

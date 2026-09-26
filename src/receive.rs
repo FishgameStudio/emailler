@@ -14,9 +14,13 @@ use native_tls::TlsConnector;
 /// ```
 #[derive(Debug)]
 pub struct EmailReceipt {
+    /// The senders who emails you.
     pub senders: Vec<String>,
+    /// The receivers, including you.
     pub receivers: Vec<String>,
+    /// The subject of the email.
     pub subject: String,
+    /// The body, maybe text, maybe html.
     pub body: String,
 }
 impl EmailReceipt {
@@ -91,14 +95,7 @@ fn parse_emails(addr_obj: Option<&Address>) -> Vec<String> {
 /// Receive all unread emails, and mark them as read if need.
 /// # Examples
 /// ```no_run
-/// use emailler::{receive_emails, Result};
-/// fn main() -> Result<()> {
-///     let emails = receive_emails(
-///         "a@example.com", "sample-auth-code",
-///         "smtp.example.com", true // Mark as read
-///     )?;
-///     println!("Unread emails: {emails:#?}");
-/// }
+#[doc = include_str!("../examples/receive.rs")]
 /// ```
 pub fn receive_emails(
     addr: &str,
@@ -164,4 +161,56 @@ pub fn receive_emails(
 
     session.logout()?;
     Ok(res)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::EmailReceipt;
+    use super::parse_emails;
+    use mail_parser::{Addr, Address, Group};
+    use std::borrow::Cow::Borrowed;
+
+    #[test]
+    fn email_receipt() {
+        let er = EmailReceipt::new();
+        assert!(er.body.is_empty());
+        assert!(er.receivers.is_empty());
+        assert!(er.senders.is_empty());
+        assert!(er.subject.is_empty());
+    }
+    #[test]
+    fn receipt_default() {
+        let opt: Option<EmailReceipt> = None;
+        let er = opt.unwrap_or_default();
+        assert!(er.body.is_empty());
+        assert!(er.receivers.is_empty());
+        assert!(er.senders.is_empty());
+        assert!(er.subject.is_empty());
+    }
+    #[test]
+    fn email_parse() {
+        type OptRefAddr<'a> = Option<&'a Address<'a>>;
+
+        let addr = Addr {
+            name: Some(Borrowed("Bob")),
+            address: Some(Borrowed("bob@example.com")),
+        };
+        let group = Group {
+            name: Some(Borrowed("TestGroup")),
+            addresses: vec![addr.clone()],
+        };
+
+        let addr1: OptRefAddr = Some(&Address::List(vec![]));
+        let addr2: OptRefAddr = None;
+        let addr3: OptRefAddr = Some(&Address::List(vec![addr]));
+        let addr4: OptRefAddr = Some(&Address::Group(vec![group]));
+        let addr5: OptRefAddr = Some(&Address::Group(vec![]));
+        assert!(parse_emails(addr1).is_empty());
+        assert!(parse_emails(addr2).is_empty());
+        assert_eq!(parse_emails(addr3).len(), 1);
+        assert_eq!(parse_emails(addr3)[0], "Bob <bob@example.com>");
+        assert_eq!(parse_emails(addr4).len(), 1);
+        assert_eq!(parse_emails(addr4)[0], "TestGroup:  Bob <bob@example.com>");
+        assert!(parse_emails(addr5).is_empty());
+    }
 }
