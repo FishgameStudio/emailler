@@ -25,14 +25,7 @@ This crate is not trying to replace a full email platform. Instead, it focuses o
 
 ## 📦 Installation
 
-Add this to your `Cargo.toml` file:
-
-```toml
-[dependencies]
-emailler = "0.1.1"
-```
-
-Or use cargo to add it:
+Use cargo to add it:
 
 ```sh
 cargo add emailler
