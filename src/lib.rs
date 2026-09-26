@@ -21,5 +21,5 @@ pub(crate) mod utils;
 
 pub use config::{ImapConfig, SmtpConfig};
 pub use errors::{EmailError, Result};
-pub use receive::receive_emails;
+pub use receive::{EmailReceipt, receive_emails};
 pub use send::Email;
