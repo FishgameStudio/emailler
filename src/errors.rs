@@ -4,13 +4,13 @@
 use thiserror::Error;
 
 /// Enumeration for errors during email proccess.
-/// [`AddressParse`](EmailError::AddressParse): Errors during parsing email address.
-/// [`MessageBuild`](EmailError::MessageBuild): Errors during building email messages.
-/// [`SmtpTransport`](EmailError::SmtpTransport): Errors during creating SMTP transports.
-/// [`InvalidField`](EmailError::InvalidField): Errors when the fields are invalid.
-/// [`TlsConnectorCreation`](EmailError::TlsConnectorCreation): Errors during creating TLS connector.
-/// [`Client`](EmailError::Client): Errors during the client or the session.
-/// [`EmailParse`](EmailError::EmailParse): Errors during parsing email contents.
+/// - [`AddressParse`](EmailError::AddressParse): Errors during parsing email address.
+/// - [`MessageBuild`](EmailError::MessageBuild): Errors during building email messages.
+/// - [`SmtpTransport`](EmailError::SmtpTransport): Errors during creating SMTP transports.
+/// - [`InvalidField`](EmailError::InvalidField): Errors when the fields are invalid.
+/// - [`TlsConnectorCreation`](EmailError::TlsConnectorCreation): Errors during creating TLS connector.
+/// - [`Client`](EmailError::Client): Errors during the client or the session.
+/// - [`EmailParse`](EmailError::EmailParse): Errors during parsing email contents.
 #[derive(Debug, Error)]
 pub enum EmailError {
     /// Errors during parsing email address.

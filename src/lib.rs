@@ -6,20 +6,11 @@
 //!
 //! # Usage Example
 //! ```no_run
-//! use emailler::Email;
+#![doc = include_str!("../examples/send.rs")]
+//! ```
 //!
-//! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let mut email = Email::new();
-//!     email.from = "you@gmail.com".to_string();
-//!     email.to = "friend@example.com".to_string();
-//!     email.smtp_server = "smtp.gmail.com".to_string();
-//!     email.subject = "Hello from Rust".to_string();
-//!     email.body = "This email was sent with emailler.".to_string();
-//!
-//!     let response = email.send("your-app-password")?;
-//!     println!("Mail sent successfully: {:?}", response);
-//!     Ok(())
-//! }
+//! ```no_run
+#![doc = include_str!("../examples/receive.rs")]
 //! ```
 
 pub(crate) mod errors;

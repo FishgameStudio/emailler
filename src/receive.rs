@@ -1,16 +1,42 @@
 //! Module for email receiving.
 
-use crate::{
-    errors::{EmailError, Result},
-    send::Email,
-};
+use crate::errors::{EmailError, Result};
 use mail_parser::{
     Address::{self, *},
     MessageParser,
 };
 use native_tls::TlsConnector;
 
-fn parse_emails(addr_obj: Option<&Address>) -> String {
+/// Email receipts, without complex sending informations.
+/// # Examples
+/// ```no_run
+#[doc = include_str!("../examples/receive.rs")]
+/// ```
+#[derive(Debug)]
+pub struct EmailReceipt {
+    pub senders: Vec<String>,
+    pub receivers: Vec<String>,
+    pub subject: String,
+    pub body: String,
+}
+impl EmailReceipt {
+    /// Create a new [`EmailReceipt`] object.
+    pub fn new() -> Self {
+        Self {
+            senders: vec![],
+            receivers: vec![],
+            subject: String::new(),
+            body: String::new(),
+        }
+    }
+}
+impl Default for EmailReceipt {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+fn parse_emails(addr_obj: Option<&Address>) -> Vec<String> {
     // Too complicated to parse!
     match addr_obj {
         Some(List(addrs)) => {
@@ -29,7 +55,7 @@ fn parse_emails(addr_obj: Option<&Address>) -> String {
                     .unwrap_or("(No emails)");
                 result.push(format!("{name} <{email}>"));
             }
-            result.join(", ")
+            result
         }
         Some(Group(groups)) => {
             // Multiple groups
@@ -56,9 +82,9 @@ fn parse_emails(addr_obj: Option<&Address>) -> String {
                 }
                 result.push(format!("{g_name}:  {}", result2.join(", ")));
             }
-            result.join("; ")
+            result
         }
-        None => String::from("No senders"),
+        None => vec![],
     }
 }
 
@@ -79,7 +105,7 @@ pub fn receive_emails(
     auth_code: &str,
     smtp_server: &str,
     mark_as_read: bool,
-) -> Result<Vec<Email>> {
+) -> Result<Vec<EmailReceipt>> {
     // Simple validation
     if addr.is_empty() {
         Err(EmailError::InvalidField(String::from(
@@ -106,7 +132,7 @@ pub fn receive_emails(
         .join(",");
     let fetched = session.fetch(&seq_str, "RFC822")?;
 
-    let mut res: Vec<Email> = Vec::new();
+    let mut res: Vec<EmailReceipt> = Vec::new();
     for item in fetched.iter() {
         let Some(raw) = item.body() else {
             // No RFC822 body, skip
@@ -117,7 +143,7 @@ pub fn receive_emails(
                 "Email message parsing failed",
             )));
         };
-        let mut email = Email::new();
+        let mut email = EmailReceipt::new();
 
         email.subject = msg.subject().unwrap_or("(No subjects)").to_string();
         email.body = msg
@@ -125,11 +151,10 @@ pub fn receive_emails(
             .iter()
             .filter_map(|c| char::from_u32(*c))
             .collect();
-        email.smtp_server = smtp_server.to_string();
-        email.from = parse_emails(msg.from());
-        email.to = parse_emails(msg.to());
+        email.senders = parse_emails(msg.from());
+        email.receivers = parse_emails(msg.to());
 
-        res.push(Email::new());
+        res.push(email);
     }
 
     if mark_as_read {

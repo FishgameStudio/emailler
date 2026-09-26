@@ -75,20 +75,7 @@ impl Email {
     /// The `auth_code` will be zeroized after usage.
     /// # Examples
     /// ```no_run
-    /// use emailler::Email;
-    ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let mut email = Email::new();
-    ///     email.from = "you@gmail.com".to_string();
-    ///     email.to = "friend@example.com".to_string();
-    ///     email.smtp_server = "smtp.gmail.com".to_string();
-    ///     email.subject = "Hello from Rust".to_string();
-    ///     email.body = "This email was sent with emailler.".to_string();
-    ///
-    ///     let response = email.send("your-app-password")?;
-    ///     println!("Mail sent successfully: {:?}", response);
-    ///     Ok(())
-    /// }
+    #[doc = include_str!("../examples/send.rs")]
     /// ```
     pub fn send<S>(&self, auth_code: S) -> Result<Response>
     where
