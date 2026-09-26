@@ -23,7 +23,7 @@ If you are building a Rust service and need to send mail quickly, emailler gives
 
 This crate is not trying to replace a full email platform. Instead, it focuses on the essentials: creating an email, setting the sender and recipient, connecting to an SMTP server, and sending it reliably.
 
-## Installation
+## 📦 Installation
 
 Add this to your `Cargo.toml` file:
 
@@ -32,7 +32,7 @@ Add this to your `Cargo.toml` file:
 emailler = "0.1.0"
 ```
 
-## Quick start
+## 🚀 Quick start
 
 ```rust
 use emailler::Email;
