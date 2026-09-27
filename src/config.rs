@@ -2,6 +2,43 @@
 
 use std::time::Duration;
 
+use crate::EmailError;
+
+/// Generic constraints to convert into [`std::time::Duration`].
+pub trait IntoDuration {
+    fn into_duration(self) -> Duration;
+}
+impl IntoDuration for Duration {
+    fn into_duration(self) -> Duration {
+        self
+    }
+}
+impl IntoDuration for u64 {
+    fn into_duration(self) -> Duration {
+        Duration::from_secs(self) // seconds!
+    }
+}
+impl IntoDuration for u32 {
+    fn into_duration(self) -> Duration {
+        Duration::from_secs(self as u64)
+    }
+}
+impl IntoDuration for u16 {
+    fn into_duration(self) -> Duration {
+        Duration::from_secs(self as u64)
+    }
+}
+impl IntoDuration for u8 {
+    fn into_duration(self) -> Duration {
+        Duration::from_secs(self as u64)
+    }
+}
+impl IntoDuration for usize {
+    fn into_duration(self) -> Duration {
+        Duration::from_millis(self as u64)
+    }
+}
+
 /// SMTP configurations.
 #[derive(Debug)]
 pub struct SmtpConfig {
@@ -28,17 +65,59 @@ impl SmtpConfig {
             timeout: None,
         }
     }
-    /// Update fields with given arguments.
-    pub fn update<S>(&mut self, host: S, port: u16, use_starttls: bool, timeout: u64)
+
+    /// Update the field `host`.
+    pub fn set_host<S>(&mut self, host: S) -> Result<(), EmailError>
     where
         S: Into<String>,
     {
+        use crate::utils::check_host;
+
         let host = host.into();
-        let timeout = Duration::new(timeout, 0);
+        if !check_host(&host) {
+            return Err(EmailError::Host("Host address invalid".into()));
+        }
+
         self.host = host;
+
+        Ok(())
+    }
+
+    /// Update the field `port`.
+    pub fn set_port(&mut self, port: u16) {
         self.port = port;
+    }
+
+    /// Update the field `use_starttls`
+    pub fn set_starttls(&mut self, use_starttls: bool) {
         self.use_starttls = use_starttls;
-        self.timeout = Some(timeout);
+    }
+
+    /// Update the field `timeout`.
+    pub fn update_timeout<D>(&mut self, seconds: Option<D>)
+    where
+        D: IntoDuration,
+    {
+        self.timeout = seconds.map(|s| s.into_duration());
+    }
+
+    /// Update fields with given arguments.
+    pub fn update<S, D>(
+        &mut self,
+        host: S,
+        port: u16,
+        use_starttls: bool,
+        seconds: Option<D>,
+    ) -> Result<(), EmailError>
+    where
+        S: Into<String>,
+        D: IntoDuration,
+    {
+        self.set_host(host)?;
+        self.set_port(port);
+        self.set_starttls(use_starttls);
+        self.update_timeout(seconds);
+        Ok(())
     }
 }
 impl Default for SmtpConfig {
@@ -73,17 +152,58 @@ impl ImapConfig {
             timeout: None,
         }
     }
-    /// Update fields with given arguments.
-    pub fn update<S>(&mut self, host: S, port: u16, use_starttls: bool, timeout: u64)
+    /// Update the field `host`.
+    pub fn set_host<S>(&mut self, host: S) -> Result<(), EmailError>
     where
         S: Into<String>,
     {
+        use crate::utils::check_host;
+
         let host = host.into();
-        let timeout = Duration::new(timeout, 0);
+        if !check_host(&host) {
+            return Err(EmailError::Host("Host address invalid".into()));
+        }
+
         self.host = host;
+
+        Ok(())
+    }
+
+    /// Update the field `port`.
+    pub fn set_port(&mut self, port: u16) {
         self.port = port;
+    }
+
+    /// Update the field `use_starttls`
+    pub fn set_starttls(&mut self, use_starttls: bool) {
         self.use_starttls = use_starttls;
-        self.timeout = Some(timeout);
+    }
+
+    /// Update the field `timeout`.
+    pub fn update_timeout<D>(&mut self, seconds: Option<D>)
+    where
+        D: IntoDuration,
+    {
+        self.timeout = seconds.map(|s| s.into_duration());
+    }
+
+    /// Update fields with given arguments.
+    pub fn update<S, D>(
+        &mut self,
+        host: S,
+        port: u16,
+        use_starttls: bool,
+        seconds: Option<D>,
+    ) -> Result<(), EmailError>
+    where
+        S: Into<String>,
+        D: IntoDuration,
+    {
+        self.set_host(host)?;
+        self.set_port(port);
+        self.set_starttls(use_starttls);
+        self.update_timeout(seconds);
+        Ok(())
     }
 }
 impl Default for ImapConfig {
@@ -107,7 +227,8 @@ mod tests {
     #[test]
     fn test_smtp_config_update() {
         let mut cfg = SmtpConfig::new("smtp.xxx.com");
-        cfg.update("smtp.yyy.com", 123, false, 12345);
+        cfg.update("smtp.yyy.com", 123, false, Some(12345u64))
+            .expect_err("Should fail");
         assert_eq!(cfg.host, "smtp.yyy.com");
         assert_eq!(cfg.port, 123);
         assert!(!cfg.use_starttls);
@@ -133,7 +254,8 @@ mod tests {
     #[test]
     fn test_imap_config_update() {
         let mut cfg = ImapConfig::new("smtp.xxx.com");
-        cfg.update("smtp.yyy.com", 123, true, 12345);
+        cfg.update("smtp.yyy.com", 123, true, Some(12345u64))
+            .expect_err("Should fail");
         assert_eq!(cfg.host, "smtp.yyy.com");
         assert_eq!(cfg.port, 123);
         assert!(cfg.use_starttls);

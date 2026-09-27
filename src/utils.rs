@@ -1,6 +1,7 @@
 //! Commonly used utilities.
 
 use lettre::message::Mailbox;
+use url::Host;
 
 /// Returns whether the email is valid.
 #[inline]
@@ -8,8 +9,13 @@ pub fn check_email<S>(email: S) -> bool
 where
     S: Into<String>,
 {
-    let email = email.into();
-    email.parse::<Mailbox>().is_ok()
+    email.into().parse::<Mailbox>().is_ok()
+}
+
+/// Returns whether the host string is valid.
+#[inline]
+pub fn check_host(host: &str) -> bool {
+    Host::parse(host.into()).is_ok()
 }
 
 #[cfg(test)]

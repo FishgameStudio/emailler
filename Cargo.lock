@@ -149,6 +149,7 @@ dependencies = [
  "mail-parser",
  "native-tls",
  "thiserror",
+ "url",
  "zeroize",
 ]
 

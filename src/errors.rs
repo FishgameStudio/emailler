@@ -49,6 +49,10 @@ pub enum EmailError {
     /// Errors during processing IMAP configurations.
     #[error("IMAP config error: {0}")]
     ImapConfig(String),
+
+    /// Errors during parsing host strings.
+    #[error("Failed to parse host string: {0}")]
+    Host(String),
 }
 
 /// Generic [`Result`](crate::errors::Result) for this crate.
