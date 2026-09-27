@@ -98,18 +98,23 @@ mod tests {
     use std::time::Duration;
 
     #[test]
-    fn smtp_test() {
-        let mut cfg = SmtpConfig::new("smtp.xxx.com");
+    fn test_smtp_config_construct() {
+        let cfg = SmtpConfig::new("smtp.xxx.com");
         assert_eq!(cfg.port, 587);
         assert!(cfg.use_starttls);
         assert_eq!(cfg.timeout, None);
-
+    }
+    #[test]
+    fn test_smtp_config_update() {
+        let mut cfg = SmtpConfig::new("smtp.xxx.com");
         cfg.update("smtp.yyy.com", 123, false, 12345);
         assert_eq!(cfg.host, "smtp.yyy.com");
         assert_eq!(cfg.port, 123);
         assert!(!cfg.use_starttls);
         assert_eq!(cfg.timeout, Some(Duration::new(12345, 0)));
-
+    }
+    #[test]
+    fn test_smtp_config_default() {
         // Default
         let opt: Option<SmtpConfig> = None;
         let cfg = opt.unwrap_or_default();
@@ -119,18 +124,23 @@ mod tests {
     }
 
     #[test]
-    fn imap_test() {
-        let mut cfg = ImapConfig::new("smtp.xxx.com");
+    fn test_imap_config_construct() {
+        let cfg = ImapConfig::new("smtp.xxx.com");
         assert_eq!(cfg.port, 993);
         assert!(!cfg.use_starttls);
         assert_eq!(cfg.timeout, None);
-
+    }
+    #[test]
+    fn test_imap_config_update() {
+        let mut cfg = ImapConfig::new("smtp.xxx.com");
         cfg.update("smtp.yyy.com", 123, true, 12345);
         assert_eq!(cfg.host, "smtp.yyy.com");
         assert_eq!(cfg.port, 123);
         assert!(cfg.use_starttls);
         assert_eq!(cfg.timeout, Some(Duration::new(12345, 0)));
-
+    }
+    #[test]
+    fn test_imap_config_default() {
         // Default
         let opt: Option<ImapConfig> = None;
         let cfg = opt.unwrap_or_default();

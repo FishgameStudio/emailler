@@ -204,7 +204,7 @@ mod tests {
     use std::borrow::Cow::Borrowed;
 
     #[test]
-    fn email_receipt() {
+    fn test_email_receipt_construct() {
         let er = EmailReceipt::new();
         assert!(er.body.is_empty());
         assert!(er.receivers.is_empty());
@@ -212,7 +212,7 @@ mod tests {
         assert!(er.subject.is_empty());
     }
     #[test]
-    fn receipt_default() {
+    fn test_email_receipt_default() {
         let opt: Option<EmailReceipt> = None;
         let er = opt.unwrap_or_default();
         assert!(er.body.is_empty());
@@ -221,7 +221,7 @@ mod tests {
         assert!(er.subject.is_empty());
     }
     #[test]
-    fn email_parse() {
+    fn test_email_parse() {
         type OptRefAddr<'a> = Option<&'a Address<'a>>;
 
         let addr = Addr {

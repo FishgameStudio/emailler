@@ -162,7 +162,7 @@ mod tests {
     }
 
     #[test]
-    fn email() {
+    fn test_email_construct() {
         let email = Email::new();
         assert!(email.body.is_empty());
         assert!(email.subject.is_empty());
@@ -175,7 +175,7 @@ mod tests {
     }
 
     #[test]
-    fn email_default() {
+    fn test_email_default() {
         let opt: Option<Email> = None;
         let email = opt.unwrap_or_default();
         assert!(email.body.is_empty());
