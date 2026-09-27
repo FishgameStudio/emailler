@@ -15,7 +15,7 @@ where
 /// Returns whether the host string is valid.
 #[inline]
 pub fn check_host(host: &str) -> bool {
-    Host::parse(host.into()).is_ok()
+    Host::parse(host).is_ok()
 }
 
 #[cfg(test)]
