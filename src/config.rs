@@ -122,20 +122,20 @@ mod tests {
     fn imap_test() {
         let mut cfg = ImapConfig::new("smtp.xxx.com");
         assert_eq!(cfg.port, 993);
-        assert!(cfg.use_starttls);
+        assert!(!cfg.use_starttls);
         assert_eq!(cfg.timeout, None);
 
-        cfg.update("smtp.yyy.com", 123, false, 12345);
+        cfg.update("smtp.yyy.com", 123, true, 12345);
         assert_eq!(cfg.host, "smtp.yyy.com");
         assert_eq!(cfg.port, 123);
-        assert!(!cfg.use_starttls);
+        assert!(cfg.use_starttls);
         assert_eq!(cfg.timeout, Some(Duration::new(12345, 0)));
 
         // Default
         let opt: Option<ImapConfig> = None;
         let cfg = opt.unwrap_or_default();
         assert_eq!(cfg.port, 993);
-        assert!(cfg.use_starttls);
+        assert!(!cfg.use_starttls);
         assert_eq!(cfg.timeout, None);
     }
 }
