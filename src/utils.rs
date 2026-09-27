@@ -20,7 +20,7 @@ pub fn check_host(host: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::check_email;
+    use super::{check_email, check_host};
 
     #[test]
     fn test_check_email() {
@@ -42,5 +42,21 @@ mod tests {
         assert!(!check_email("alice@.com"));
         assert!(!check_email("alice@-a.com"));
         assert!(!check_email("alice"));
+    }
+
+    #[test]
+    fn test_check_host() {
+        assert!(check_host("127.0.0.1"));
+        assert!(check_host("123.123.123.123"));
+        assert!(check_host("https://smtp.xxx.com"));
+        assert!(check_host("http://hello.org"));
+        assert!(check_host("[::1]"));
+        assert!(check_host("[fe80::aabb:ccff:fedd:eeff]"));
+
+        assert!(!check_host("")); // empty
+        assert!(!check_host("something"));
+        assert!(!check_host("a:::::"));
+        assert!(!check_host("1.1"));
+        assert!(!check_host("..."));
     }
 }
