@@ -43,6 +43,9 @@ impl IntoDuration for usize {
 #[derive(Debug)]
 pub struct SmtpConfig {
     /// SMTP server domain, e.g. smtp.gmail.com
+    ///
+    /// Note: This host doesn't contain any HTTP(S) prefixes.
+    /// For example, don't include "https://" prefixes.
     pub host: String,
     /// Port, commonly 587 (STARTTLS), 465 (SSL/TLS), 25
     pub port: u16,
@@ -113,10 +116,10 @@ impl SmtpConfig {
         S: Into<String>,
         D: IntoDuration,
     {
-        self.set_host(host)?;
         self.set_port(port);
         self.set_starttls(use_starttls);
         self.update_timeout(seconds);
+        self.set_host(host)?; // configure this at last
         Ok(())
     }
 }
@@ -130,6 +133,9 @@ impl Default for SmtpConfig {
 #[derive(Debug)]
 pub struct ImapConfig {
     /// IMAP server domain, e.g. imap.gmail.com
+    ///
+    /// Note: This host doesn't contain any HTTP(S) prefixes.
+    /// For example, don't include "https://" prefixes.
     pub host: String,
     /// Port, commonly 993 (Implicit TLS), 143 (STARTTLS)
     pub port: u16,
@@ -152,7 +158,10 @@ impl ImapConfig {
             timeout: None,
         }
     }
-    /// Update the field `host`.
+    /// Update the field `host`. (`smtp.gmail.com`, `smtp.office265.com`, etc.)
+    ///
+    /// Note: This host doesn't contain any HTTP(S) prefixes.
+    /// For example, don't include "https://" prefixes.
     pub fn set_host<S>(&mut self, host: S) -> Result<(), EmailError>
     where
         S: Into<String>,
@@ -188,6 +197,12 @@ impl ImapConfig {
     }
 
     /// Update fields with given arguments.
+    ///
+    /// **Note**: If the argument `host` is illegal, it will return [`Err`]
+    /// but the rest three configurations **will still be set**.
+    ///
+    /// The argument `host`` doesn't contain any HTTP(S) prefixes.
+    /// For example, don't include "https://" prefixes.
     pub fn update<S, D>(
         &mut self,
         host: S,
@@ -199,10 +214,10 @@ impl ImapConfig {
         S: Into<String>,
         D: IntoDuration,
     {
-        self.set_host(host)?;
         self.set_port(port);
         self.set_starttls(use_starttls);
         self.update_timeout(seconds);
+        self.set_host(host)?; // configure this at last
         Ok(())
     }
 }
@@ -227,9 +242,8 @@ mod tests {
     #[test]
     fn test_smtp_config_update() {
         let mut cfg = SmtpConfig::new("smtp.xxx.com");
-        cfg.update("smtp.yyy.com", 123, false, Some(12345u64))
+        cfg.update("illegal format", 123, false, Some(12345u64))
             .expect_err("Should fail");
-        assert_eq!(cfg.host, "smtp.yyy.com");
         assert_eq!(cfg.port, 123);
         assert!(!cfg.use_starttls);
         assert_eq!(cfg.timeout, Some(Duration::new(12345, 0)));
@@ -254,9 +268,8 @@ mod tests {
     #[test]
     fn test_imap_config_update() {
         let mut cfg = ImapConfig::new("smtp.xxx.com");
-        cfg.update("smtp.yyy.com", 123, true, Some(12345u64))
+        cfg.update("illegal format", 123, true, Some(12345u64))
             .expect_err("Should fail");
-        assert_eq!(cfg.host, "smtp.yyy.com");
         assert_eq!(cfg.port, 123);
         assert!(cfg.use_starttls);
         assert_eq!(cfg.timeout, Some(Duration::new(12345, 0)));

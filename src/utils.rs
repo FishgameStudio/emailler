@@ -48,13 +48,12 @@ mod tests {
     fn test_check_host() {
         assert!(check_host("127.0.0.1"));
         assert!(check_host("123.123.123.123"));
-        assert!(check_host("https://smtp.xxx.com"));
-        assert!(check_host("http://hello.org"));
         assert!(check_host("[::1]"));
         assert!(check_host("[fe80::aabb:ccff:fedd:eeff]"));
 
+        assert!(!check_host("https://smtp.xxx.com")); // No HTTP(S) headers!
+        assert!(!check_host("http://hello.org"));
         assert!(!check_host("")); // empty
-        assert!(!check_host("something"));
         assert!(!check_host("a:::::"));
         assert!(!check_host("1.1"));
         assert!(!check_host("..."));
