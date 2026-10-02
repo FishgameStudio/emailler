@@ -1,20 +1,30 @@
 //! Commonly used utilities.
 
+use lettre::address::AddressError;
 use lettre::message::Mailbox;
 use url::Host;
 
 /// Returns whether the email is valid.
 #[inline]
-pub fn check_email<S>(email: S) -> bool
+pub(crate) fn check_email<S>(email: S) -> bool
 where
     S: Into<String>,
 {
     email.into().parse::<Mailbox>().is_ok()
 }
 
+/// Get the [`Err`] value
+#[inline]
+pub(crate) fn check_email_err<S>(email: S) -> Result<(), AddressError>
+where
+    S: Into<String>,
+{
+    email.into().parse::<Mailbox>().map(|_| ())
+}
+
 /// Returns whether the host string is valid.
 #[inline]
-pub fn check_host(host: &str) -> bool {
+pub(crate) fn check_host(host: &str) -> bool {
     Host::parse(host).is_ok()
 }
 

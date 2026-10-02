@@ -92,7 +92,7 @@ impl Email {
             html_body: String::new(),
         }
     }
-    /// Send this email to the specified receiver.
+    /// Send this email to the stored receiver.
     /// The `auth_code` will be zeroized after usage.
     /// # Examples
     /// ```no_run
@@ -106,7 +106,7 @@ impl Email {
 
         // Simple validation
         #[inline]
-        fn valid_addr(email: &str, msg: &str) -> Result<()> {
+        fn validate_addr(email: &str, msg: &str) -> Result<()> {
             use crate::utils::check_email;
             if !check_email(email) {
                 Err(EmailError::InvalidField(String::from(msg)))?;
@@ -114,15 +114,71 @@ impl Email {
             Ok(())
         }
         #[inline]
-        fn non_empty(s: &str, msg: &str) -> Result<()> {
-            if s.is_empty() {
+        fn validate_host(host: &str, msg: &str) -> Result<()> {
+            use crate::utils::check_host;
+            if check_host(&host) {
                 Err(EmailError::InvalidField(String::from(msg)))?;
             }
             Ok(())
         }
-        valid_addr(&self.from, "Address of sender invalid")?;
-        valid_addr(&self.to, "Address of receiver invalid")?;
-        non_empty(&cfg.host, "SMTP server domain not specified")?;
+        validate_addr(&self.from, "Address of sender invalid")?;
+        validate_addr(&self.to, "Address of receiver invalid")?;
+        validate_host(&cfg.host, "SMTP server domain not specified")?;
+
+        let mailer = construct_mailer(&self.from, &auth_code, cfg)?;
+        let message = Message::builder()
+            .from(self.from.parse()?)
+            .to(self.to.parse()?)
+            .subject(&self.subject)
+            .multipart(MultiPart::alternative_plain_html(
+                self.body.to_owned(),
+                self.html_body.to_owned(),
+            ))?;
+        let resp = mailer.send(&message)?;
+
+        auth_code.zeroize();
+        drop(auth_code);
+        Ok(resp)
+    }
+
+    /// Send this email to the specified receiver.
+    /// The `auth_code` will be zeroized after usage.
+    /// # Examples
+    /// ```no_run
+    #[doc = include_str!("../examples/send.rs")]
+    /// ```
+    pub fn send_to<S>(&self, auth_code: S, cfg: &SmtpConfig, to: S) -> Result<Response>
+    where
+        S: Into<String>,
+    {
+        use crate::utils::check_email_err;
+        let to = to.into();
+
+        if let Err(e) = check_email_err(&to) {
+            return Err(EmailError::AddressParse(e));
+        }
+
+        let mut auth_code = auth_code.into();
+
+        // Simple validation
+        #[inline]
+        fn validate_addr(email: &str, msg: &str) -> Result<()> {
+            use crate::utils::check_email;
+            if !check_email(email) {
+                Err(EmailError::InvalidField(String::from(msg)))?;
+            }
+            Ok(())
+        }
+        #[inline]
+        fn validate_host(host: &str, msg: &str) -> Result<()> {
+            use crate::utils::check_host;
+            if !check_host(&host) {
+                Err(EmailError::InvalidField(String::from(msg)))?;
+            }
+            Ok(())
+        }
+        validate_addr(&self.from, "Address of sender invalid")?;
+        validate_host(&cfg.host, "SMTP server domain not specified")?;
 
         let mailer = construct_mailer(&self.from, &auth_code, cfg)?;
         let message = Message::builder()
