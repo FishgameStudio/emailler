@@ -196,6 +196,19 @@ pub fn receive_emails(
     Ok(res)
 }
 
+/// Receive all unread spam or junk emails.
+#[allow(unused_variables, dead_code)]
+pub fn receive_spam(
+    addr: &str,
+    auth_code: &str,
+    cfg: &ImapConfig,
+    mark_as_read: bool,
+    skip_errors: bool,
+) -> Result<Vec<EmailReceipt>> {
+    // TODO: Implement function `receive_spam`.
+    unimplemented!();
+}
+
 #[cfg(test)]
 mod tests {
     use super::EmailReceipt;
