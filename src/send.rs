@@ -4,9 +4,35 @@ use crate::config::SmtpConfig;
 use crate::errors::{EmailError, Result};
 use lettre::message::{Message, MultiPart};
 use lettre::transport::smtp::authentication::Credentials;
-use lettre::transport::smtp::response::Response;
+use lettre::transport::smtp::response::{Response, Severity};
 use lettre::{SmtpTransport, Transport};
 use zeroize::Zeroize;
+
+/// Severity of the [`SendResponse`].
+#[derive(Debug)]
+pub enum ResponseSeverity {
+    /// OK, succeed.
+    Ok,
+    /// Continue, continue to send informations.
+    Continue,
+    /// Retry, retry later.
+    Retry,
+    /// Failed, don't retry again.
+    Failed,
+}
+#[derive(Debug)]
+pub struct SendResponse {
+    pub status: ResponseSeverity,
+    pub msg: String,
+}
+impl Default for SendResponse {
+    fn default() -> Self {
+        Self {
+            status: ResponseSeverity::Failed,
+            msg: "".to_string(),
+        }
+    }
+}
 
 fn construct_mailer<S>(sender: S, authentication_code: S, cfg: &SmtpConfig) -> Result<SmtpTransport>
 where
@@ -98,7 +124,7 @@ impl Email {
     /// ```no_run
     #[doc = include_str!("../examples/send.rs")]
     /// ```
-    pub fn send<S>(&self, auth_code: S, cfg: &SmtpConfig) -> Result<Response>
+    pub fn send<S>(&self, auth_code: S, cfg: &SmtpConfig) -> Result<SendResponse>
     where
         S: Into<String>,
     {
@@ -135,6 +161,15 @@ impl Email {
                 self.html_body.to_owned(),
             ))?;
         let resp = mailer.send(&message)?;
+        let resp = SendResponse {
+            status: match resp.code().severity {
+                Severity::PositiveCompletion => ResponseSeverity::Ok,
+                Severity::PositiveIntermediate => ResponseSeverity::Continue,
+                Severity::TransientNegativeCompletion => ResponseSeverity::Retry,
+                Severity::PermanentNegativeCompletion => ResponseSeverity::Failed,
+            },
+            msg: resp.message().collect::<Vec<_>>().join(" "),
+        };
 
         auth_code.zeroize();
         drop(auth_code);

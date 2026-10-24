@@ -8,95 +8,208 @@ use mail_parser::{
 };
 use native_tls::TlsConnector;
 
-/// Email receipts, without complex sending informations.
+/// Email receipt structure, carrying extracted email metadata and content.
 /// # Examples
 /// ```no_run
 #[doc = include_str!("../examples/receive.rs")]
 /// ```
 #[derive(Debug)]
 pub struct EmailReceipt {
-    /// The senders who emails you.
+    /// Sender list of this email.
     pub senders: Vec<String>,
-    /// The receivers, including you.
+    /// Recipient list of this email.
     pub receivers: Vec<String>,
-    /// The subject of the email.
+    /// Email subject line.
     pub subject: String,
-    /// The text body.
+    /// Plain text body content.
     pub body: String,
-    /// The HTML body.
+    /// HTML formatted body content.
     pub html_body: String,
 }
+
 impl EmailReceipt {
-    /// Create a new [`EmailReceipt`] object.
+    /// Create an empty [`EmailReceipt`].
     pub fn new() -> Self {
         Self {
-            senders: vec![],
-            receivers: vec![],
+            senders: Vec::new(),
+            receivers: Vec::new(),
             subject: String::new(),
             body: String::new(),
             html_body: String::new(),
         }
     }
 }
+
 impl Default for EmailReceipt {
     fn default() -> Self {
         Self::new()
     }
 }
 
+/// Convert mail_parser Address tree into human-readable address strings.
+/// Handles single address lists and grouped address lists.
 fn parse_emails(addr_obj: Option<&Address>) -> Vec<String> {
-    // Too complicated to parse!
     match addr_obj {
-        Some(List(addrs)) => {
-            // Multiple senders
-            let mut result: Vec<String> = vec![];
-            for addr in addrs {
+        Some(List(addrs)) => addrs
+            .iter()
+            .map(|addr| {
                 let name = addr
                     .name
                     .as_ref()
                     .map(|s| s.as_ref())
-                    .unwrap_or("(No names)");
+                    .unwrap_or("(No name)");
                 let email = addr
                     .address
                     .as_ref()
                     .map(|s| s.as_ref())
-                    .unwrap_or("(No emails)");
-                result.push(format!("{name} <{email}>"));
-            }
-            result
-        }
-        Some(Group(groups)) => {
-            // Multiple groups
-            let mut result: Vec<String> = vec![];
-            for g in groups {
-                let g_name = g
+                    .unwrap_or("(No address)");
+                format!("{name} <{email}>")
+            })
+            .collect(),
+        Some(Group(groups)) => groups
+            .iter()
+            .map(|g| {
+                let group_name = g
                     .name
                     .as_ref()
                     .map(|s| s.as_ref())
-                    .unwrap_or("(No group names)");
-                let mut result2: Vec<String> = vec![];
-                for addr in &g.addresses {
-                    let name = addr
-                        .name
-                        .as_ref()
-                        .map(|s| s.as_ref())
-                        .unwrap_or("(No names)");
-                    let email = addr
-                        .address
-                        .as_ref()
-                        .map(|s| s.as_ref())
-                        .unwrap_or("(No emails)");
-                    result2.push(format!("{} <{}>", name, email));
-                }
-                result.push(format!("{g_name}:  {}", result2.join(", ")));
-            }
-            result
-        }
-        None => vec![],
+                    .unwrap_or("(No group name)");
+                let members: Vec<_> = g
+                    .addresses
+                    .iter()
+                    .map(|addr| {
+                        let name = addr
+                            .name
+                            .as_ref()
+                            .map(|s| s.as_ref())
+                            .unwrap_or("(No name)");
+                        let email = addr
+                            .address
+                            .as_ref()
+                            .map(|s| s.as_ref())
+                            .unwrap_or("(No address)");
+                        format!("{name} <{email}>")
+                    })
+                    .collect();
+                format!("{group_name}: {}", members.join(", "))
+            })
+            .collect(),
+        None => Vec::new(),
     }
 }
 
-/// Receive all unread emails, and mark them as read if need.
+/// Fetch all unread messages from the specified IMAP folder using UID semantics.
+/// Prefer this helper instead of raw sequence numbers, as UIDs are stable across folder changes.
+fn fetch_unread(
+    addr: &str,
+    auth_code: &str,
+    cfg: &ImapConfig,
+    folder: &str,
+    mark_as_read: bool,
+    skip_errors: bool,
+) -> Result<Vec<EmailReceipt>> {
+    use crate::utils::check_email;
+
+    if !check_email(addr) {
+        return Err(EmailError::InvalidField("Address invalid".to_string()));
+    }
+
+    if cfg.use_starttls && cfg.port == 993 {
+        return Err(EmailError::ImapConfig(
+            "Port 993 uses Implicit TLS, set use_starttls=false".to_string(),
+        ));
+    }
+    if !cfg.use_starttls && cfg.port == 143 {
+        return Err(EmailError::ImapConfig(
+            "Port 143 uses STARTTLS, set use_starttls=true".to_string(),
+        ));
+    }
+
+    let tls_connector = TlsConnector::new()?;
+    let client = if cfg.use_starttls {
+        imap::connect_starttls((cfg.host.as_str(), cfg.port), &cfg.host, &tls_connector)?
+    } else {
+        imap::connect((cfg.host.as_str(), cfg.port), &cfg.host, &tls_connector)?
+    };
+
+    let mut session = client.login(addr, auth_code).map_err(|e| e.0)?;
+    session.select(folder)?;
+
+    let unread_uids = session.uid_search("UNSEEN")?;
+    if unread_uids.is_empty() {
+        session.logout()?;
+        return Ok(Vec::new());
+    }
+
+    const BATCH_SIZE: usize = 50;
+    // Materialize UidSet into Vec first
+    let mut uid_list: Vec<u32> = unread_uids.into_iter().collect();
+    // Sort UIDs, many IMAP servers prefer ordered UID sets
+    uid_list.sort_unstable();
+
+    let mut receipts = Vec::new();
+
+    // Manual chunk iterator
+    let mut idx = 0;
+    while idx < uid_list.len() {
+        let end = (idx + BATCH_SIZE).min(uid_list.len());
+        let chunk = &uid_list[idx..end];
+        idx = end;
+
+        let uid_set = chunk
+            .iter()
+            .map(|uid| uid.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let fetched = session.uid_fetch(&uid_set, "RFC822")?;
+        for item in fetched.iter() {
+            let Some(raw) = item.body() else {
+                continue;
+            };
+
+            let Some(msg) = MessageParser::default().parse(raw) else {
+                if skip_errors {
+                    continue;
+                } else {
+                    return Err(EmailError::EmailParse(
+                        "Email message parsing failed".to_string(),
+                    ));
+                }
+            };
+
+            let mut receipt = EmailReceipt::new();
+            receipt.subject = msg.subject().unwrap_or("(No subject)").to_string();
+            receipt.body = msg
+                .text_bodies()
+                .flat_map(|part| match &part.body {
+                    PartType::Text(s) => Some(s.as_ref()),
+                    _ => None,
+                })
+                .collect();
+            receipt.html_body = msg
+                .html_bodies()
+                .flat_map(|part| match &part.body {
+                    PartType::Html(s) => Some(s.as_ref()),
+                    _ => None,
+                })
+                .collect();
+            receipt.senders = parse_emails(msg.from());
+            receipt.receivers = parse_emails(msg.to());
+
+            receipts.push(receipt);
+        }
+
+        if mark_as_read {
+            session.uid_store(&uid_set, "+FLAGS \\Seen")?;
+        }
+    }
+
+    session.logout()?;
+    Ok(receipts)
+}
+
+/// Receive all unread emails from INBOX.
 /// # Examples
 /// ```no_run
 #[doc = include_str!("../examples/receive.rs")]
@@ -108,92 +221,27 @@ pub fn receive_emails(
     mark_as_read: bool,
     skip_errors: bool,
 ) -> Result<Vec<EmailReceipt>> {
-    // Simple validation
-    use crate::utils::check_email;
-    if !check_email(addr) {
-        Err(EmailError::InvalidField(String::from("Address invalid")))?;
-    }
-    if cfg.use_starttls && cfg.port == 993 {
-        return Err(EmailError::ImapConfig(
-            "Port 993 uses Implicit TLS, set use_starttls=false".into(),
-        ));
-    }
-    if !cfg.use_starttls && cfg.port == 143 {
-        return Err(EmailError::ImapConfig(
-            "Port 143 uses STARTTLS, set use_starttls=true".into(),
-        ));
-    }
+    fetch_unread(addr, auth_code, cfg, "INBOX", mark_as_read, skip_errors)
+}
 
-    let tls_conn = TlsConnector::new()?;
-    let client = if cfg.use_starttls {
-        imap::connect_starttls((cfg.host.as_str(), cfg.port), &cfg.host, &tls_conn)?
-    } else {
-        imap::connect((cfg.host.as_str(), cfg.port), &cfg.host, &tls_conn)?
-    };
-    let mut session = client.login(addr, auth_code).map_err(|e| e.0)?;
-
-    session.select("INBOX")?;
-    let unread_ids = session.search("UNSEEN")?;
-    if unread_ids.is_empty() {
-        // No unread emails.
-        session.logout()?;
-        return Ok(vec![]);
-    }
-
-    let seq_str: String = unread_ids
-        .iter()
-        .map(|n| n.to_string())
-        .collect::<Vec<_>>()
-        .join(",");
-    let fetched = session.fetch(&seq_str, "RFC822")?;
-
-    let mut res: Vec<EmailReceipt> = Vec::new();
-    for item in fetched.iter() {
-        let Some(raw) = item.body() else {
-            // No RFC822 body, skip
-            continue;
-        };
-        let Some(msg) = MessageParser::default().parse(raw) else {
-            if skip_errors {
-                continue;
-            } else {
-                return Err(EmailError::EmailParse(String::from(
-                    "Email message parsing failed",
-                )));
-            }
-        };
-        let mut email = EmailReceipt::new();
-
-        email.subject = msg.subject().unwrap_or("(No subjects)").to_string();
-        email.body = msg
-            .text_bodies()
-            .flat_map(|part| match &part.body {
-                PartType::Text(s) => Some(s.as_ref()),
-                _ => None,
-            })
-            .collect::<String>();
-
-        email.html_body = msg
-            .html_bodies()
-            .flat_map(|part| match &part.body {
-                PartType::Html(s) => Some(s.as_ref()),
-                _ => None,
-            })
-            .collect::<String>();
-
-        email.senders = parse_emails(msg.from());
-        email.receivers = parse_emails(msg.to());
-
-        res.push(email);
-    }
-
-    if mark_as_read {
-        // Mark as read.
-        session.store(&seq_str, "+FLAGS \\Seen")?;
-    }
-
-    session.logout()?;
-    Ok(res)
+/// Receive all unread spam/junk messages.
+/// Folder name varies across providers:
+/// - QQ / 163 / Outlook: `"Junk"`
+/// - Gmail: `"[Gmail]/Spam"`
+/// - Dovecot default: `"Spam"`
+/// # Examples
+/// ```no_run
+#[doc = include_str!("../examples/receive_spam.rs")]
+/// ```
+pub fn receive_spam(
+    addr: &str,
+    auth_code: &str,
+    cfg: &ImapConfig,
+    folder: &str,
+    mark_as_read: bool,
+    skip_errors: bool,
+) -> Result<Vec<EmailReceipt>> {
+    fetch_unread(addr, auth_code, cfg, folder, mark_as_read, skip_errors)
 }
 
 #[cfg(test)]
@@ -205,21 +253,23 @@ mod tests {
 
     #[test]
     fn test_email_receipt_construct() {
-        let er = EmailReceipt::new();
-        assert!(er.body.is_empty());
-        assert!(er.receivers.is_empty());
-        assert!(er.senders.is_empty());
-        assert!(er.subject.is_empty());
+        let receipt = EmailReceipt::new();
+        assert!(receipt.body.is_empty());
+        assert!(receipt.receivers.is_empty());
+        assert!(receipt.senders.is_empty());
+        assert!(receipt.subject.is_empty());
     }
+
     #[test]
     fn test_email_receipt_default() {
         let opt: Option<EmailReceipt> = None;
-        let er = opt.unwrap_or_default();
-        assert!(er.body.is_empty());
-        assert!(er.receivers.is_empty());
-        assert!(er.senders.is_empty());
-        assert!(er.subject.is_empty());
+        let receipt = opt.unwrap_or_default();
+        assert!(receipt.body.is_empty());
+        assert!(receipt.receivers.is_empty());
+        assert!(receipt.senders.is_empty());
+        assert!(receipt.subject.is_empty());
     }
+
     #[test]
     fn test_email_parse() {
         type OptRefAddr<'a> = Option<&'a Address<'a>>;
@@ -233,17 +283,21 @@ mod tests {
             addresses: vec![addr.clone()],
         };
 
-        let addr1: OptRefAddr = Some(&Address::List(vec![]));
-        let addr2: OptRefAddr = None;
-        let addr3: OptRefAddr = Some(&Address::List(vec![addr]));
-        let addr4: OptRefAddr = Some(&Address::Group(vec![group]));
-        let addr5: OptRefAddr = Some(&Address::Group(vec![]));
-        assert!(parse_emails(addr1).is_empty());
-        assert!(parse_emails(addr2).is_empty());
-        assert_eq!(parse_emails(addr3).len(), 1);
-        assert_eq!(parse_emails(addr3)[0], "Bob <bob@example.com>");
-        assert_eq!(parse_emails(addr4).len(), 1);
-        assert_eq!(parse_emails(addr4)[0], "TestGroup:  Bob <bob@example.com>");
-        assert!(parse_emails(addr5).is_empty());
+        let case_empty_list: OptRefAddr = Some(&Address::List(vec![]));
+        let case_none: OptRefAddr = None;
+        let case_single: OptRefAddr = Some(&Address::List(vec![addr]));
+        let case_group: OptRefAddr = Some(&Address::Group(vec![group]));
+        let case_empty_group: OptRefAddr = Some(&Address::Group(vec![]));
+
+        assert!(parse_emails(case_empty_list).is_empty());
+        assert!(parse_emails(case_none).is_empty());
+        assert_eq!(parse_emails(case_single).len(), 1);
+        assert_eq!(parse_emails(case_single)[0], "Bob <bob@example.com>");
+        assert_eq!(parse_emails(case_group).len(), 1);
+        assert_eq!(
+            parse_emails(case_group)[0],
+            "TestGroup: Bob <bob@example.com>"
+        );
+        assert!(parse_emails(case_empty_group).is_empty());
     }
 }
