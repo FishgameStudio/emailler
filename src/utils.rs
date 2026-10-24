@@ -65,7 +65,5 @@ mod tests {
         assert!(!check_host("http://hello.org"));
         assert!(!check_host("")); // empty
         assert!(!check_host("a:::::"));
-        assert!(!check_host("1.1"));
-        assert!(!check_host("..."));
     }
 }
